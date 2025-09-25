@@ -1,0 +1,53 @@
+---
+interface Props {
+	url?: string;
+	title?: string;
+	image?: string;
+	description?: string;
+}
+
+const { url, title, image, description } = Astro.props;
+import "@/styles/global.css";
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<!-- Open Graph tags -->
+		<meta property="og:title" content={title ? title : "Trellium"} />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={url ? url : Astro.url} />
+		<meta
+			property="og:description"
+			content={description
+				? description
+				: "The foundation of symbiotic software"}
+		/>
+		{image && <meta property="og:image" content={image} />}
+
+		<link rel="sitemap" href="/sitemap-index.xml" />
+
+		<!-- Web analytics -->
+		<script
+			is:inline
+			src="https://www.aamira.me/api/script.js"
+			data-site-id="8"
+			async
+			defer></script>
+
+		<!-- Fonts. Cloudflare will load this with their proxy. -->
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Oxanium:wght@700&display=swap"
+			rel="stylesheet"
+		/>
+
+		<!-- Other -->
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+	</head>
+	<slot />
+
+</html>
