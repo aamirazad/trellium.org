@@ -18,7 +18,7 @@ jobs:
         id: check_permissions
         uses: octokit/request-action@v2.x
         with:
-          route: GET /repos/${{ github.repository }}/collaborators/${COMMENTER}/permission
+          route: GET /repos/${{ github.repository }}/collaborators/${{ env.COMMENTER }}/permission
         env:
           GITHUB_TOKEN: ${{ secrets.MERGE_PAT }}
 
