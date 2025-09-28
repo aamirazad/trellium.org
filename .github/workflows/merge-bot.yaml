@@ -49,19 +49,30 @@ jobs:
       - name: Get PR details
         if: steps.permission_check.outputs.allowed == 'true'
         id: pr
-        uses: octokit/request-action@v2.x
+        uses: actions/github-script@v7
         with:
-          route: GET /repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.MERGE_PAT }}
+          github-token: ${{ secrets.MERGE_PAT }}
+          script: |
+            const { data } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: ${{ github.event.issue.number }}
+            });
+            
+            core.setOutput('branch', data.head.ref);
+            core.setOutput('base_branch', data.base.ref);
+            core.setOutput('title', data.title);
+            core.setOutput('author', data.user.login);
+            core.setOutput('mergeable', data.mergeable);
+            core.setOutput('state', data.state);
 
       - name: Extract pr info
         if: steps.permission_check.outputs.allowed == 'true'
         run: |
-          echo "PR_BRANCH=$(jq -r .head.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
-          echo "BASE_BRANCH=$(jq -r .base.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
-          echo "PR_TITLE=$(jq -r .title <<< "${{ steps.pr.outputs.data }}")" >> $GITHUB_ENV
-          echo "PR_AUTHOR=$(jq -r .user.login <<< "${{ steps.pr.outputs.data }}")" >> $GITHUB_ENV
+          echo "PR_BRANCH=${{ steps.pr.outputs.branch }}" >> $GITHUB_ENV
+          echo "BASE_BRANCH=${{ steps.pr.outputs.base_branch }}" >> $GITHUB_ENV
+          echo "PR_TITLE=${{ steps.pr.outputs.title }}" >> $GITHUB_ENV
+          echo "PR_AUTHOR=${{ steps.pr.outputs.author }}" >> $GITHUB_ENV
 
       - name: Fetch all branches
         if: steps.permission_check.outputs.allowed == 'true'
