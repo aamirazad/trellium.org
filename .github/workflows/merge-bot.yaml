@@ -9,11 +9,16 @@ jobs:
     if: github.event.issue.pull_request != null && contains(github.event.comment.body, '/merge')
     runs-on: ubuntu-latest
     steps:
+      - name: Set commenter info
+        run: |
+          echo "COMMENTER=${{ github.event.comment.user.login }}" >> $GITHUB_ENV
+          echo "PR_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
+
       - name: Check permissions
         id: check_permissions
         uses: octokit/request-action@v2.x
         with:
-          route: GET /repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission
+          route: GET /repos/${{ github.repository }}/collaborators/${COMMENTER}/permission
         env:
           GITHUB_TOKEN: ${{ secrets.MERGE_PAT }}
 
@@ -32,7 +37,7 @@ jobs:
         uses: peter-evans/create-or-update-comment@v4
         with:
           issue-number: ${{ github.event.issue.number }}
-          body: "🔒 Sorry @${{ github.event.comment.user.login }}, only repository maintainers can use the `/merge` command."
+          body: "🔒 Sorry @${COMMENTER}, only repository maintainers can use the `/merge` command."
 
       - name: Checkout repo
         if: steps.permission_check.outputs.allowed == 'true'
@@ -50,14 +55,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MERGE_PAT }}
 
-      - name: Extract info
+      - name: Extract pr info
         if: steps.permission_check.outputs.allowed == 'true'
         run: |
           echo "PR_BRANCH=$(jq -r .head.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
           echo "BASE_BRANCH=$(jq -r .base.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
           echo "PR_TITLE=$(jq -r .title <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
           echo "PR_AUTHOR=$(jq -r .user.login <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
-          echo "PR_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
 
       - name: Fetch all branches
         if: steps.permission_check.outputs.allowed == 'true'
@@ -121,7 +125,7 @@ jobs:
       - name: Update CHANGELOG.md
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
         run: |
-          ENTRY="- ${PR_TITLE} by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) for https://github.com/${{ github.repository }}/pull/${PR_NUMBER} was [merged](https://github.com/${{ github.repository }}/compare/${PREV_SHA}...${NEW_SHA}) by [@${{ github.event.comment.user.login }}](https://github.com/${{ github.event.comment.user.login }})"
+          ENTRY="- ${PR_TITLE} by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) for https://github.com/${{ github.repository }}/pull/${PR_NUMBER} was [merged](https://github.com/${{ github.repository }}/compare/${PREV_SHA}...${NEW_SHA}) by [@${COMMENTER}](https://github.com/${COMMENTER})"
 
           # If no "Unreleased Features" section, prepend it with details block
           if ! grep -q '^## Unreleased Features' CHANGELOG.md; then
@@ -152,8 +156,8 @@ jobs:
           fi
 
           # Use the comment author as committer
-          git config user.name "${{ github.event.comment.user.login }}"
-          git config user.email "${{ github.event.comment.user.login }}@users.noreply.github.com"
+          git config user.name "${COMMENTER}"
+          git config user.email "${COMMENTER}@users.noreply.github.com"
 
           git add CHANGELOG.md
           git commit --author "${PR_AUTHOR} <${PR_AUTHOR}@users.noreply.github.com>" -m "chore: merge ${PR_TITLE} (#${PR_NUMBER})"
