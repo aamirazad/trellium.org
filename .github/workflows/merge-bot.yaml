@@ -136,7 +136,7 @@ jobs:
       - name: Update CHANGELOG.md
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
         run: |
-          ENTRY="- ${PR_TITLE} by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) for https://github.com/${{ github.repository }}/pull/${PR_NUMBER} was [merged](https://github.com/${{ github.repository }}/compare/${PREV_SHA}...${NEW_SHA}) by [@${COMMENTER}](https://github.com/${COMMENTER})"
+          ENTRY="- ${PR_TITLE} by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) for [#${PR_NUMBER}](https://github.com/${{ github.repository }}/pull/${PR_NUMBER}) was [merged](https://github.com/${{ github.repository }}/compare/${PREV_SHA}...${NEW_SHA}) by [@${COMMENTER}](https://github.com/${COMMENTER})"
 
           # If no "Unreleased Features" section, prepend it with details block
           if ! grep -q '^## Unreleased Features' CHANGELOG.md; then
