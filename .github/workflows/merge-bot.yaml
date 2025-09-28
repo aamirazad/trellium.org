@@ -1,0 +1,169 @@
+name: Merge Bot
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  fast-forward-merge:
+    if: github.event.issue.pull_request != null && contains(github.event.comment.body, '/merge')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check permissions
+        id: check_permissions
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /repos/${{ github.repository }}/collaborators/${{ github.event.comment.user.login }}/permission
+        env:
+          GITHUB_TOKEN: ${{ secrets.MERGE_PAT }}
+
+      - name: Verify maintainer permission
+        id: permission_check
+        run: |
+          PERMISSION=$(jq -r .permission <<< '${{ steps.check_permissions.outputs.data }}')
+          if [[ "$PERMISSION" == "admin" || "$PERMISSION" == "write" ]]; then
+            echo "allowed=true" >> $GITHUB_OUTPUT
+          else
+            echo "allowed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment permission denied
+        if: steps.permission_check.outputs.allowed == 'false'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: "🔒 Sorry @${{ github.event.comment.user.login }}, only repository maintainers can use the `/merge` command."
+
+      - name: Checkout repo
+        if: steps.permission_check.outputs.allowed == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.MERGE_PAT }}
+
+      - name: Get PR details
+        if: steps.permission_check.outputs.allowed == 'true'
+        id: pr
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.MERGE_PAT }}
+
+      - name: Extract info
+        if: steps.permission_check.outputs.allowed == 'true'
+        run: |
+          echo "PR_BRANCH=$(jq -r .head.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
+          echo "BASE_BRANCH=$(jq -r .base.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
+          echo "PR_TITLE=$(jq -r .title <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
+          echo "PR_AUTHOR=$(jq -r .user.login <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
+          echo "PR_NUMBER=${{ github.event.issue.number }}" >> $GITHUB_ENV
+
+      - name: Fetch all branches
+        if: steps.permission_check.outputs.allowed == 'true'
+        run: git fetch origin +refs/heads/*:refs/remotes/origin/*
+
+      - name: Check if PR is up to date
+        if: steps.permission_check.outputs.allowed == 'true'
+        id: up_to_date
+        run: |
+          git checkout $PR_BRANCH
+          git fetch origin $BASE_BRANCH
+          if git merge-base --is-ancestor origin/$BASE_BRANCH $PR_BRANCH; then
+            echo "result=up_to_date" >> $GITHUB_OUTPUT
+          else
+            echo "result=outdated" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment if outdated
+        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'outdated'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: "⚠️ Cannot fast-forward merge because `${{ env.PR_BRANCH }}` is not up to date with `${{ env.BASE_BRANCH }}`. Please rebase first."
+
+      - name: Fast-forward merge into base
+        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date'
+        id: merge
+        run: |
+          git checkout $BASE_BRANCH
+          PREV_SHA=$(git rev-parse HEAD)
+          echo "PREV_SHA=$PREV_SHA" >> $GITHUB_ENV
+
+          if git merge --ff-only $PR_BRANCH; then
+            NEW_SHA=$(git rev-parse HEAD)
+            echo "NEW_SHA=$NEW_SHA" >> $GITHUB_ENV
+            
+            # Try to push and capture result
+            if git push origin $BASE_BRANCH; then
+              echo "success=true" >> $GITHUB_OUTPUT
+            else
+              echo "success=false" >> $GITHUB_OUTPUT
+              echo "error_type=push_failed" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "error_type=merge_failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment merge failure
+        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'false'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ❌ Merge failed.
+
+            ${{ steps.merge.outputs.error_type == 'push_failed' && '**Push rejected**: This is likely due to repository rules (e.g., no merge commits allowed). The merge was successful locally but could not be pushed to the remote repository.' || '**Fast-forward merge failed**: This usually means there are conflicts or the branch cannot be fast-forwarded. Please check the branch status and try rebasing.' }}
+
+            _@aamirazad_
+
+      - name: Update CHANGELOG.md
+        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
+        run: |
+          ENTRY="- ${PR_TITLE} by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) for https://github.com/${{ github.repository }}/pull/${PR_NUMBER} was [merged](https://github.com/${{ github.repository }}/compare/${PREV_SHA}...${NEW_SHA}) by [@${{ github.event.comment.user.login }}](https://github.com/${{ github.event.comment.user.login }})"
+
+          # If no "Unreleased Features" section, prepend it with details block
+          if ! grep -q '^## Unreleased Features' CHANGELOG.md; then
+            cat <<EOF > tmp_changelog.md
+          ## Unreleased Features
+
+          <details>
+          <summary>All commits</summary>
+
+          $ENTRY
+
+          </details>
+
+          EOF
+            cat CHANGELOG.md >> tmp_changelog.md
+            mv tmp_changelog.md CHANGELOG.md
+          else
+            # Insert the new entry immediately after the summary
+            awk -v entry="$ENTRY" 'BEGIN{done=0}
+            {
+              print
+              if(!done && /<summary>All commits<\/summary>/){
+                print "\n" entry
+                done=1
+              }
+            }' CHANGELOG.md > tmp_changelog.md
+            mv tmp_changelog.md CHANGELOG.md
+          fi
+
+          # Use the comment author as committer
+          git config user.name "${{ github.event.comment.user.login }}"
+          git config user.email "${{ github.event.comment.user.login }}@users.noreply.github.com"
+
+          git add CHANGELOG.md
+          git commit --author "${PR_AUTHOR} <${PR_AUTHOR}@users.noreply.github.com>" -m "chore: merge ${PR_TITLE} (#${PR_NUMBER})"
+          git push origin $BASE_BRANCH
+
+      - name: Comment success
+        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            🎉 Successfully fast-forward merged `${{ env.PR_BRANCH }}` into `${{ env.BASE_BRANCH }}`.
+            - Compare: https://github.com/${{ github.repository }}/compare/${{ env.PREV_SHA }}...${{ env.NEW_SHA }}
