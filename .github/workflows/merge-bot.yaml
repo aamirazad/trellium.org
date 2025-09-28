@@ -159,7 +159,7 @@ jobs:
             {
               print
               if(!done && /<summary>All commits<\/summary>/){
-                print "\n" entry
+                print entry
                 done=1
               }
             }' CHANGELOG.md > tmp_changelog.md
