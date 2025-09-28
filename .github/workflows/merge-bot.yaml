@@ -60,8 +60,8 @@ jobs:
         run: |
           echo "PR_BRANCH=$(jq -r .head.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
           echo "BASE_BRANCH=$(jq -r .base.ref <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
-          echo "PR_TITLE=$(jq -r .title <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
-          echo "PR_AUTHOR=$(jq -r .user.login <<< '${{ steps.pr.outputs.data }}')" >> $GITHUB_ENV
+          echo "PR_TITLE=$(jq -r .title <<< "${{ steps.pr.outputs.data }}")" >> $GITHUB_ENV
+          echo "PR_AUTHOR=$(jq -r .user.login <<< "${{ steps.pr.outputs.data }}")" >> $GITHUB_ENV
 
       - name: Fetch all branches
         if: steps.permission_check.outputs.allowed == 'true'
@@ -120,7 +120,7 @@ jobs:
 
             ${{ steps.merge.outputs.error_type == 'push_failed' && '**Push rejected**: This is likely due to repository rules (e.g., no merge commits allowed). The merge was successful locally but could not be pushed to the remote repository.' || '**Fast-forward merge failed**: This usually means there are conflicts or the branch cannot be fast-forwarded. Please check the branch status and try rebasing.' }}
 
-            _@aamirazad_
+            _@${COMMENTER}_
 
       - name: Update CHANGELOG.md
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
