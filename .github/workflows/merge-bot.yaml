@@ -171,7 +171,7 @@ jobs:
           git config user.email "${COMMENTER}@users.noreply.github.com"
 
           git add CHANGELOG.md
-          git commit --author "${PR_AUTHOR} <${PR_AUTHOR}@users.noreply.github.com>" -m "chore: merge ${PR_TITLE} (#${PR_NUMBER})"
+          git commit --author "${PR_AUTHOR} <${PR_AUTHOR}@users.noreply.github.com>" -m "chore: update changelog for ${PR_TITLE} (#${PR_NUMBER})"
           git push origin $BASE_BRANCH
 
       - name: Comment success
