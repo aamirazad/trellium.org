@@ -136,7 +136,39 @@ jobs:
       - name: Update CHANGELOG.md
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
         run: |
-          ENTRY="- ${PR_TITLE} by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) for [#${PR_NUMBER}](https://github.com/${{ github.repository }}/pull/${PR_NUMBER}) was [merged](https://github.com/${{ github.repository }}/compare/${PREV_SHA}...${NEW_SHA}) by [@${COMMENTER}](https://github.com/${COMMENTER})"
+          declare -A TYPE_MAP=(
+            ["build"]="Build"
+            ["ci"]="CI"
+            ["docs"]="Documentation"
+            ["feat"]="Feature"
+            ["fix"]="Fix"
+            ["perf"]="Performance"
+            ["refactor"]="Refactor"
+            ["style"]="Style"
+            ["test"]="Test"
+          )
+
+          # Parse type, scope, and description from PR_TITLE
+          TYPE=$(echo "$PR_TITLE" | sed -E 's/^([a-z]+)(\([^\)]*\))?:.*/\1/')
+          SCOPE=$(echo "$PR_TITLE" | sed -nE 's/^[a-z]+\(([^)]*)\):.*/\1/p')
+          DESCRIPTION=$(echo "$PR_TITLE" | sed -E 's/^[a-z]+(\([^\)]*\))?:\s*(.*)/\2/')
+          TYPE_HUMAN="${TYPE_MAP[$TYPE]}"
+
+          if [[ -n "$TYPE_HUMAN" ]]; then
+            if [[ -n "$SCOPE" ]]; then
+              PREFIX="**${TYPE_HUMAN}**(${SCOPE})"
+            else
+              PREFIX="**${TYPE_HUMAN}**"
+            fi
+          else
+            PREFIX="**Other**"
+          fi
+
+          SHORT_PREV=$(echo $PREV_SHA | cut -c1-7)
+          SHORT_NEW=$(echo $NEW_SHA | cut -c1-7)
+          COMPARE_URL="https://github.com/${{ github.repository }}/compare/$SHORT_PREV...$SHORT_NEW"
+
+          ENTRY="- ${PREFIX}: ${DESCRIPTION} ([#${PR_NUMBER}](https://github.com/${{ github.repository }}/pull/${PR_NUMBER})) by [@${PR_AUTHOR}](https://github.com/${PR_AUTHOR}) - [\`${SHORT_PREV}...${SHORT_NEW}\`]($COMPARE_URL)"
 
           # If no "Unreleased Features" section, prepend it with details block
           if ! grep -q '^## Unreleased Features' CHANGELOG.md; then
