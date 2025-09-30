@@ -1,12 +1,26 @@
-## Unreleased Features
+## v0.1.0
 
-<details>
-<summary>All commits</summary>
+Merge bot release! Why did I make this bot? Because none of GitHub's merging techniques satisfied all my wants, so I made one that does. I wanted the `main` branch to contain **all** the changes, squash wouldn't work here. I wanted the `main` branch to be readable, merge commits are very confusing and unnecessary. And I wanted the `main` branch to not change, that is, no force pushes or rebasing. When you look at the commit history at one point in time, it should not change just by reloading. Rebase merging is out. So what does Merge bot do? After a maintainer commits `/merge` the bot verifies the feature branch is up-to-date with main. If not, you must run `git fetch origin` and `git rebase origin/main`. If the branch is up-to-date, it fast forwards the main branch to your feature branch. No merge commits! Plus, unlike rebase merging, it does not rewrite the commits. No verification was lost, and the commit hash stays the same as your feature branch. Lastly, it automatically adds your commit to the `CHANGELOG.md` file with important information about the commit. A neat easter egg is if you want to quickly find out who approved the merge, just look for who created the update changelog commit, that is the person who ran `/merge`! More information about contributor guidelines will be added soon, but I wanted to set the foundation for how trellium codebases will operate.
+
+### Features
 
 - **Feature**(merge bot): skip changelog ([#13](https://github.com/aamirazad/trellium.org/pull/13)) by [@aamirazad](https://github.com/aamirazad) - [`35b52de...86918c6`](https://github.com/aamirazad/trellium.org/compare/35b52de...86918c6)
-- chore(docs): structure changelog list without extra whitespace by [@aamirazad](https://github.com/aamirazad) for [#10](https://github.com/aamirazad/trellium.org/pull/10) was [merged](https://github.com/aamirazad/trellium.org/compare/7590959437467c48157d090c45e14e436a68e08d...56984cb4d348827697f87208fad37449a42d8f1d) by [@aamirazad](https://github.com/aamirazad)
-- feat(merge bot): more explicit changelog linking by [@aamirazad](https://github.com/aamirazad) for [#9](https://github.com/aamirazad/trellium.org/pull/9) was [merged](https://github.com/aamirazad/trellium.org/compare/1f16b39d8e0ae641171e923b15f97affc687ca35...b3279e61b899b97cfa85dcf494c2beb6fcf3dc65) by [@aamirazad](https://github.com/aamirazad)
-- feat: start tracking merges in changelog by [@aamirazad](https://github.com/aamirazad) for [#8](https://github.com/aamirazad/trellium.org/pull/8) was [merged](https://github.com/aamirazad/trellium.org/compare/bd65b183b2c8e64fccd58803debfcd5b8a6ceeb4...bb5645ff713e7576367dda70ee3d0bb2ab6bdd48) by [@aamirazad](https://github.com/aamirazad)
+- **Feature**(merge bot): loading comment and better error handling by [@aamirazad](https://github.com/aamirazad) - [`2dc2857...35b52de`](https://github.com/aamirazad/trellium.org/compare/2dc28573a13fdf4a257c17a06eeb7a5fd1503824...35b52deb2f5c0ce4b0cd9796a450bd07d9b86471)
+- **Feature**(merge bot): better format changelog with expanded type by [@aamirazad](https://github.com/aamirazad) - [`49c3b42...2dc2857`](https://github.com/aamirazad/trellium.org/compare/49c3b42426aa7dd4b20abe783f0e387dcaf2650c...2dc28573a13fdf4a257c17a06eeb7a5fd1503824)
+- **Feature**(merge bot): add fast forward merge bot by [@aamirazad](https://github.com/aamirazad) - [`2794eae...64293e3`](https://github.com/aamirazad/trellium.org/compare/2794eae24bdcaa01788ff2fc98343f68ce24ef01...64293e32bd2741e2e3f6e8c2a08f8e0b801cc5f6)
+
+<details>
+<summary>All changes</summary>
+
+- **Feature**(merge bot): skip changelog ([#13](https://github.com/aamirazad/trellium.org/pull/13)) by [@aamirazad](https://github.com/aamirazad) - [`35b52de...86918c6`](https://github.com/aamirazad/trellium.org/compare/35b52de...86918c6)
+- **Feature**(merge bot): loading comment and better error handling by [@aamirazad](https://github.com/aamirazad) - [`2dc2857...35b52de`](https://github.com/aamirazad/trellium.org/compare/2dc28573a13fdf4a257c17a06eeb7a5fd1503824...35b52deb2f5c0ce4b0cd9796a450bd07d9b86471)
+- **Feature**(merge bot): better format changelog with expanded type by [@aamirazad](https://github.com/aamirazad) - [`49c3b42...2dc2857`](https://github.com/aamirazad/trellium.org/compare/49c3b42426aa7dd4b20abe783f0e387dcaf2650c...2dc28573a13fdf4a257c17a06eeb7a5fd1503824)
+- **Chore**(docs): structure changelog list without extra whitespace ([#10](https://github.com/aamirazad/trellium.org/pull/10)) by [@aamirazad](https://github.com/aamirazad) - [`c89ea46...fa2ce81`](https://github.com/aamirazad/trellium.org/compare/c89ea46e5fc3938748c9fa374461cd8e7cf89803...fa2ce810059ade7e5f783eed2c4503321c792201)
+- **Fix**(merge bot): remove extra new line in changelog list by [@aamirazad](https://github.com/aamirazad) - [`3aba884...c89ea46`](https://github.com/aamirazad/trellium.org/compare/3aba884c812677793ade46be0bf187d2702c5943...c89ea46e5fc3938748c9fa374461cd8e7cf89803)
+- **Feature**(merge bot): more explicit changelog linking ([#9](https://github.com/aamirazad/trellium.org/pull/9)) by [@aamirazad](https://github.com/aamirazad) - [`1f16b39...b3279e6`](https://github.com/aamirazad/trellium.org/compare/1f16b39d8e0ae641171e923b15f97affc687ca35...b3279e61b899b97cfa85dcf494c2beb6fcf3dc65)
+- **Fix**(merge bot): don't say pr title in changelog commit by [@aamirazad](https://github.com/aamirazad) - [`4c21b2a...1f16b39`](https://github.com/aamirazad/trellium.org/compare/4c21b2a0e4e1a00ead641cf9e07544ba444c6105...1f16b39d8e0ae641171e923b15f97affc687ca35)
+- **Chore**: start tracking merges in changelog ([#8](https://github.com/aamirazad/trellium.org/pull/8)) by [@aamirazad](https://github.com/aamirazad) - [`bd65b18...a8fb1c4`](https://github.com/aamirazad/trellium.org/compare/bd65b183b2c8e64fccd58803debfcd5b8a6ceeb4...a8fb1c4deb678185dad53d591099f3435be06b72)
+- **Fix**(merge bot): logic, api, and variable changes by [@aamirazad](https://github.com/aamirazad) - [`71ca535...5bdb99b`](https://github.com/aamirazad/trellium.org/compare/71ca5350cd22ac5810a28c380b4a91fc75289893...5bdb99bbf302b1fa9afd10ecb6c880c18aed343c)
+- **Feature**(merge bot): add fast forward merge bot by [@aamirazad](https://github.com/aamirazad) - [`2794eae...64293e3`](https://github.com/aamirazad/trellium.org/compare/2794eae24bdcaa01788ff2fc98343f68ce24ef01...64293e32bd2741e2e3f6e8c2a08f8e0b801cc5f6)
 
 </details>
-
