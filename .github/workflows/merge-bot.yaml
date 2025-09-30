@@ -5,10 +5,22 @@ on:
     types: [created]
 
 jobs:
-  fast-forward-merge:
+  merge-and-update:
     if: github.event.issue.pull_request != null && contains(github.event.comment.body, '/merge')
     runs-on: ubuntu-latest
     steps:
+      - name: Create loading comment
+        id: loading_comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            <img src="https://xrgkyc5aexvkc7oh.public.blob.vercel-storage.com/loading-spinner-TPIqYiHmChtY21ZfF6puFEZq9X5MDx" width="20" align="top">  Merging...
+
+            _I'm going as fast as I can!_
+            
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
       - name: Set commenter info
         run: |
           echo "COMMENTER=${{ github.event.comment.user.login }}" >> $GITHUB_ENV
@@ -36,8 +48,12 @@ jobs:
         if: steps.permission_check.outputs.allowed == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
-          issue-number: ${{ github.event.issue.number }}
-          body: "🔒 Sorry @${COMMENTER}, only repository maintainers can use the `/merge` command."
+          comment-id: ${{ steps.loading_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            🔒 Sorry @${{ env.COMMENTER }}, only repository maintainers can use the `/merge` command.
+            
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Checkout repo
         if: steps.permission_check.outputs.allowed == 'true'
@@ -66,14 +82,6 @@ jobs:
             core.setOutput('mergeable', data.mergeable);
             core.setOutput('state', data.state);
 
-      - name: Extract pr info
-        if: steps.permission_check.outputs.allowed == 'true'
-        run: |
-          echo "PR_BRANCH=${{ steps.pr.outputs.branch }}" >> $GITHUB_ENV
-          echo "BASE_BRANCH=${{ steps.pr.outputs.base_branch }}" >> $GITHUB_ENV
-          echo "PR_TITLE=${{ steps.pr.outputs.title }}" >> $GITHUB_ENV
-          echo "PR_AUTHOR=${{ steps.pr.outputs.author }}" >> $GITHUB_ENV
-
       - name: Fetch all branches
         if: steps.permission_check.outputs.allowed == 'true'
         run: git fetch origin +refs/heads/*:refs/remotes/origin/*
@@ -82,9 +90,9 @@ jobs:
         if: steps.permission_check.outputs.allowed == 'true'
         id: up_to_date
         run: |
-          git checkout $PR_BRANCH
-          git fetch origin $BASE_BRANCH
-          if git merge-base --is-ancestor origin/$BASE_BRANCH $PR_BRANCH; then
+          git checkout ${{ steps.pr.outputs.branch }}
+          git fetch origin ${{ steps.pr.outputs.base_branch }}
+          if git merge-base --is-ancestor origin/${{ steps.pr.outputs.base_branch }} ${{ steps.pr.outputs.branch }}; then
             echo "result=up_to_date" >> $GITHUB_OUTPUT
           else
             echo "result=outdated" >> $GITHUB_OUTPUT
@@ -94,23 +102,26 @@ jobs:
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'outdated'
         uses: peter-evans/create-or-update-comment@v4
         with:
-          issue-number: ${{ github.event.issue.number }}
-          body: "⚠️ Cannot fast-forward merge because `${{ env.PR_BRANCH }}` is not up to date with `${{ env.BASE_BRANCH }}`. Please rebase first."
+          comment-id: ${{ steps.loading_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            ⚠️ Cannot fast-forward merge because `${{ steps.pr.outputs.branch }}` is not up to date with `${{ steps.pr.outputs.base_branch }}`. Please rebase first.
+            
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Fast-forward merge into base
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date'
         id: merge
         run: |
-          git checkout $BASE_BRANCH
+          git checkout ${{ steps.pr.outputs.base_branch }}
           PREV_SHA=$(git rev-parse HEAD)
-          echo "PREV_SHA=$PREV_SHA" >> $GITHUB_ENV
+          echo "prev_sha=$PREV_SHA" >> $GITHUB_OUTPUT
 
-          if git merge --ff-only $PR_BRANCH; then
+          if git merge --ff-only origin/${{ steps.pr.outputs.branch }}; then
             NEW_SHA=$(git rev-parse HEAD)
-            echo "NEW_SHA=$NEW_SHA" >> $GITHUB_ENV
+            echo "new_sha=$NEW_SHA" >> $GITHUB_OUTPUT
             
-            # Try to push and capture result
-            if git push origin $BASE_BRANCH; then
+            if git push origin ${{ steps.pr.outputs.base_branch }}; then
               echo "success=true" >> $GITHUB_OUTPUT
             else
               echo "success=false" >> $GITHUB_OUTPUT
@@ -125,16 +136,30 @@ jobs:
         if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
-          issue-number: ${{ github.event.issue.number }}
+          comment-id: ${{ steps.loading_comment.outputs.comment-id }}
+          edit-mode: replace
           body: |
             ❌ Merge failed.
 
             ${{ steps.merge.outputs.error_type == 'push_failed' && '**Push rejected**: This is likely due to repository rules (e.g., no merge commits allowed). The merge was successful locally but could not be pushed to the remote repository.' || '**Fast-forward merge failed**: This usually means there are conflicts or the branch cannot be fast-forwarded. Please check the branch status and try rebasing.' }}
 
-            _@${COMMENTER}_
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            _@${{ env.COMMENTER }}_
+
+      - name: Set additional environment variables for changelog
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true'
+        run: |
+          echo "PR_TITLE=${{ steps.pr.outputs.title }}" >> $GITHUB_ENV
+          echo "PR_AUTHOR=${{ steps.pr.outputs.author }}" >> $GITHUB_ENV
+          echo "PR_BRANCH=${{ steps.pr.outputs.branch }}" >> $GITHUB_ENV
+          echo "BASE_BRANCH=${{ steps.pr.outputs.base_branch }}" >> $GITHUB_ENV
+          echo "PREV_SHA=${{ steps.merge.outputs.prev_sha }}" >> $GITHUB_ENV
+          echo "NEW_SHA=${{ steps.merge.outputs.new_sha }}" >> $GITHUB_ENV
 
       - name: Update CHANGELOG.md
-        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true'
+        id: changelog
         run: |
           declare -A TYPE_MAP=(
             ["build"]="Build"
@@ -205,19 +230,47 @@ jobs:
             mv tmp_changelog.md CHANGELOG.md
           fi
 
-          # Use the comment author as committer
           git config user.name "${COMMENTER}"
           git config user.email "${COMMENTER}@users.noreply.github.com"
 
           git add CHANGELOG.md
-          git commit --author "${PR_AUTHOR} <${PR_AUTHOR}@users.noreply.github.com>" -m "chore(docs): update changelog for #${PR_NUMBER}"
-          git push origin $BASE_BRANCH
+          if git commit --author "${PR_AUTHOR} <${PR_AUTHOR}@users.noreply.github.com>" -m "chore(docs): update changelog for #${PR_NUMBER}"; then
+            if git push origin $BASE_BRANCH; then
+              echo "success=true" >> $GITHUB_OUTPUT
+            else
+              echo "success=false" >> $GITHUB_OUTPUT
+              echo "error=push_failed" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "error=commit_failed" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Comment success
-        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'true'
+      - name: Comment changelog failure
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.changelog.outputs.success == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
-          issue-number: ${{ github.event.issue.number }}
+          comment-id: ${{ steps.loading_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            ⚠️ Merge succeeded but changelog update failed.
+            
+            **Error**: ${{ steps.changelog.outputs.error == 'push_failed' && 'Failed to push changelog commit' || 'Failed to create changelog commit' }}
+            
+            The PR has been merged successfully but the changelog was not updated automatically.
+            
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            _@${{ env.COMMENTER }}_
+
+      - name: Comment success
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.changelog.outputs.success == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.loading_comment.outputs.comment-id }}
+          edit-mode: replace
           body: |
             🎉 Successfully fast-forward merged `${{ env.PR_BRANCH }}` into `${{ env.BASE_BRANCH }}`.
             - Compare: https://github.com/${{ github.repository }}/compare/${{ env.PREV_SHA }}...${{ env.NEW_SHA }}
+            
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
