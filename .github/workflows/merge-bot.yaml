@@ -18,7 +18,7 @@ jobs:
             <img src="https://xrgkyc5aexvkc7oh.public.blob.vercel-storage.com/loading-spinner-TPIqYiHmChtY21ZfF6puFEZq9X5MDx" width="20" align="top">  Merging...
 
             _I'm going as fast as I can!_
-            
+
             [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Set commenter info
@@ -45,14 +45,14 @@ jobs:
           fi
 
       - name: Comment permission denied
-        if: steps.permission_check.outputs.allowed == 'false'
+        if: failure() || steps.permission_check.outputs.allowed == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.loading_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
             🔒 Sorry @${{ env.COMMENTER }}, only repository maintainers can use the `/merge` command.
-            
+
             [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Checkout repo
@@ -81,6 +81,7 @@ jobs:
             core.setOutput('author', data.user.login);
             core.setOutput('mergeable', data.mergeable);
             core.setOutput('state', data.state);
+            core.setOutput('labels', JSON.stringify(data.labels.map(l => l.name)));
 
       - name: Fetch all branches
         if: steps.permission_check.outputs.allowed == 'true'
@@ -105,8 +106,8 @@ jobs:
           comment-id: ${{ steps.loading_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            ⚠️ Cannot fast-forward merge because `${{ steps.pr.outputs.branch }}` is not up to date with `${{ steps.pr.outputs.base_branch }}`. Please rebase first.
-            
+            ⚠️ Cannot fast-forward merge because `${{ steps.pr.outputs.branch }}` is not up to date with `${{ steps.pr.outputs.base_branch }}`. Please rebase your feature branch to `${{ steps.pr.outputs.base_branch }}`.
+
             [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Fast-forward merge into base
@@ -133,7 +134,7 @@ jobs:
           fi
 
       - name: Comment merge failure
-        if: steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'false'
+        if: failure() || steps.permission_check.outputs.allowed == 'true' && steps.up_to_date.outputs.result == 'up_to_date' && steps.merge.outputs.success == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.loading_comment.outputs.comment-id }}
@@ -141,14 +142,29 @@ jobs:
           body: |
             ❌ Merge failed.
 
-            ${{ steps.merge.outputs.error_type == 'push_failed' && '**Push rejected**: This is likely due to repository rules (e.g., no merge commits allowed). The merge was successful locally but could not be pushed to the remote repository.' || '**Fast-forward merge failed**: This usually means there are conflicts or the branch cannot be fast-forwarded. Please check the branch status and try rebasing.' }}
+            ${{ steps.merge.outputs.error_type == 'push_failed' && '**Push rejected**: This is likely due to repository rules (e.g., no merge commits allowed). The merge was successful locally but could not be pushed.' || '**Merge conflict**: Unable to fast-forward merge. This usually means the branch cannot be cleanly merged.' }}
 
             [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
             _@${{ env.COMMENTER }}_
 
-      - name: Set additional environment variables for changelog
+      - name: Check if changelog should be skipped
         if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true'
+        id: check_changelog
+        run: |
+          LABELS='${{ steps.pr.outputs.labels }}'
+          BASE_BRANCH='${{ steps.pr.outputs.base_branch }}'
+          SKIP="false"
+          if echo "$LABELS" | jq -e 'index("skip-changelog")' > /dev/null; then
+            SKIP="true"
+          fi
+          if [ "$BASE_BRANCH" != "main" ]; then
+            SKIP="true"
+          fi
+          echo "skip=$SKIP" >> $GITHUB_OUTPUT
+
+      - name: Set additional environment variables for changelog
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.check_changelog.outputs.skip == 'false'
         run: |
           echo "PR_TITLE=${{ steps.pr.outputs.title }}" >> $GITHUB_ENV
           echo "PR_AUTHOR=${{ steps.pr.outputs.author }}" >> $GITHUB_ENV
@@ -158,7 +174,7 @@ jobs:
           echo "NEW_SHA=${{ steps.merge.outputs.new_sha }}" >> $GITHUB_ENV
 
       - name: Update CHANGELOG.md
-        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true'
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.check_changelog.outputs.skip == 'false'
         id: changelog
         run: |
           declare -A TYPE_MAP=(
@@ -247,24 +263,24 @@ jobs:
           fi
 
       - name: Comment changelog failure
-        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.changelog.outputs.success == 'false'
+        if: failure() || steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.check_changelog.outputs.skip == 'false' && steps.changelog.outputs.success == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.loading_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
             ⚠️ Merge succeeded but changelog update failed.
-            
+
             **Error**: ${{ steps.changelog.outputs.error == 'push_failed' && 'Failed to push changelog commit' || 'Failed to create changelog commit' }}
-            
+
             The PR has been merged successfully but the changelog was not updated automatically.
-            
+
             [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            
+
             _@${{ env.COMMENTER }}_
 
-      - name: Comment success
-        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.changelog.outputs.success == 'true'
+      - name: Comment success with changelog
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.check_changelog.outputs.skip == 'false' && steps.changelog.outputs.success == 'true'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.loading_comment.outputs.comment-id }}
@@ -272,5 +288,19 @@ jobs:
           body: |
             🎉 Successfully fast-forward merged `${{ env.PR_BRANCH }}` into `${{ env.BASE_BRANCH }}`.
             - Compare: https://github.com/${{ github.repository }}/compare/${{ env.PREV_SHA }}...${{ env.NEW_SHA }}
-            
+
+            [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Comment success without changelog
+        if: steps.permission_check.outputs.allowed == 'true' && steps.merge.outputs.success == 'true' && steps.check_changelog.outputs.skip == 'true'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.loading_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            🎉 Successfully fast-forward merged `${{ steps.pr.outputs.branch }}` into `${{ steps.pr.outputs.base_branch }}`.
+            - Compare: https://github.com/${{ github.repository }}/compare/${{ steps.merge.outputs.prev_sha }}...${{ steps.merge.outputs.new_sha }}
+
+            ℹ️ Changelog update skipped.
+
             [View workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
