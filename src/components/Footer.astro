@@ -1,5 +1,12 @@
 ---
-
+let prettyUrl: string;
+if (Astro.url.hostname !== "trellium.vercel.app") {
+	prettyUrl = "⚠️ Unoffical Host";
+} else {
+	prettyUrl = "trellium.vercel.app";
+}
 ---
 
-<footer>trellium.org</footer>
+<footer class="h-10 items-center flex w-full justify-center">
+	<a href={Astro.url}>{prettyUrl}</a>
+</footer>

@@ -1,5 +1,12 @@
+/** biome-ignore-all lint/suspicious/noUnknownAtRules: Tailwind requires this syntax */
 @import "tailwindcss";
 
+@layer base {
+	html {
+		@apply text-zinc-800 dark:text-neutral-100 dark:bg-neutral-900;
+	}
+}
+
 body {
-	font-family: "Inter", sans-serif;
+	font-family: "Inter Variable", sans-serif;
 }

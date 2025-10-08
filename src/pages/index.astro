@@ -1,25 +1,23 @@
 ---
+import ButtonLink from "@/components/ButtonLink.astro";
 import Layout from "@/layouts/Layout.astro";
 ---
 
+<script>
+	import { animate } from "motion";
+
+	animate(".item", { x: [0, 100, 0] }, { ease: ["easeIn", "easeOut"] });
+</script>
+
 <Layout
 	><div class="flex py-32 px-64">
-		<div class="flex w-56 flex-col justify-center gap-8">
-			<div class="text-6xl font-semibold">Trellium</div>
-			<div>
-				<span class="font-bold">Worry free nas sotftware.</span>
-				<br />
-				<br />
-				Zero config, plug and play, auto updating, what more could you ask
-				for?
+		<div class="flex flex-col justify-center">
+			<div class="text-6xl w-full font-[Kanit] mb-8">Trellium</div>
+			<div class="mb-4">Worry free nas software.</div>
+			<ButtonLink href="/about" className="w-fit">Learn More</ButtonLink>
+			<div class="w-full mx-10">
+				<div class="text-center"></div>
 			</div>
-			<button
-				class="w-46 py-4 bg-zinc-800 rounded-md inline-flex justify-center"
-			>
-				<div class="justify-start text-zinc-100 font-semibold">
-					Get Notified
-				</div>
-			</button>
 		</div>
 	</div>
 </Layout>
