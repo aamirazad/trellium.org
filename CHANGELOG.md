@@ -3,6 +3,7 @@
 <details>
 <summary>All commits</summary>
 
+- **Documentation**: incorect information in v0.1.0 changelog entry ([#22](https://github.com/aamirazad/trellium.org/pull/22)) by [@aamirazad](https://github.com/aamirazad) - [`b6eab91...36dc027`](https://github.com/aamirazad/trellium.org/compare/b6eab91...36dc027)
 - **Feature**(merge bot): signed changelog commits ([#18](https://github.com/aamirazad/trellium.org/pull/18)) by [@aamirazad](https://github.com/aamirazad) - [`444f48e...4ddb053`](https://github.com/aamirazad/trellium.org/compare/444f48e...4ddb053)
 
 </details>
