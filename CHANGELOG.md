@@ -1,3 +1,12 @@
+## Unreleased Features
+
+<details>
+<summary>All commits</summary>
+
+- **Feature**(merge bot): signed changelog commits ([#18](https://github.com/aamirazad/trellium.org/pull/18)) by [@aamirazad](https://github.com/aamirazad) - [`444f48e...4ddb053`](https://github.com/aamirazad/trellium.org/compare/444f48e...4ddb053)
+
+</details>
+
 ## v0.1.0
 
 Merge bot release! Why did I make this bot? Because none of GitHub's merging techniques satisfied all my wants, so I made one that does. I wanted the `main` branch to contain **all** the changes, squash wouldn't work here. I wanted the `main` branch to be readable, merge commits are very confusing and unnecessary. And I wanted the `main` branch to not change, that is, no force pushes or rebasing. When you look at the commit history at one point in time, it should not change just by reloading. Rebase merging is out. So what does Merge bot do? After a maintainer commits `/merge` the bot verifies the feature branch is up-to-date with main. If not, you must run `git fetch origin` and `git rebase origin/main`. If the branch is up-to-date, it fast forwards the main branch to your feature branch. No merge commits! Plus, unlike rebase merging, it does not rewrite the commits. No verification was lost, and the commit hash stays the same as your feature branch. Lastly, it automatically adds your commit to the `CHANGELOG.md` file with important information about the commit. A neat easter egg is if you want to quickly find out who approved the merge, just look for who created the update changelog commit, that is the person who ran `/merge`! More information about contributor guidelines will be added soon, but I wanted to set the foundation for how trellium codebases will operate.
